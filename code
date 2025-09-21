@@ -1,0 +1,109 @@
+#define TRIG_PIN 2
+#define ECHO_PIN 3
+#define OBSTACLE_THRESHOLD 100  // in cm
+
+volatile unsigned long echoStart = 0;
+volatile unsigned long echoEnd = 0;
+volatile bool echoReceived = false;
+
+// IR & motor (unchanged)
+#define IR_SENSOR_RIGHT 11
+#define IR_SENSOR_LEFT 12
+#define MOTOR_SPEED 180
+int enableRightMotor = 6;
+int rightMotorPin1 = 7;
+int rightMotorPin2 = 8;
+int enableLeftMotor = 5;
+int leftMotorPin1 = 9;
+int leftMotorPin2 = 10;
+
+void setup() {
+  Serial.begin(9600);
+  TCCR0B = TCCR0B & B11111000 | B00000010;
+  pinMode(enableRightMotor, OUTPUT);
+  pinMode(rightMotorPin1, OUTPUT);
+  pinMode(rightMotorPin2, OUTPUT);
+  pinMode(enableLeftMotor, OUTPUT);
+  pinMode(leftMotorPin1, OUTPUT);
+  pinMode(leftMotorPin2, OUTPUT);
+  pinMode(IR_SENSOR_RIGHT, INPUT);
+  pinMode(IR_SENSOR_LEFT, INPUT);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoISR, CHANGE);
+  rotateMotor(0, 0);
+}
+
+void loop() {
+  long distance = getDistanceInterrupt();
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  if (distance > 0 && distance <= OBSTACLE_THRESHOLD) {
+    rotateMotor(0, 0);  // Obstacle detected
+    Serial.println("Obstacle detected, stopping motors");
+    return;
+  }
+
+  int rightIR = digitalRead(IR_SENSOR_RIGHT);
+  int leftIR = digitalRead(IR_SENSOR_LEFT);
+
+  if (rightIR == LOW && leftIR == LOW) {
+    rotateMotor(MOTOR_SPEED, MOTOR_SPEED);
+  } else if (rightIR == HIGH && leftIR == LOW) {
+    rotateMotor(-MOTOR_SPEED, MOTOR_SPEED);
+  } else if (rightIR == LOW && leftIR == HIGH) {
+    rotateMotor(MOTOR_SPEED, -MOTOR_SPEED);
+  } else {
+    rotateMotor(0, 0);
+  }
+}
+
+void rotateMotor(int rightMotorSpeed, int leftMotorSpeed) {
+  digitalWrite(rightMotorPin1, rightMotorSpeed > 0);
+  digitalWrite(rightMotorPin2, rightMotorSpeed < 0);
+  digitalWrite(leftMotorPin1, leftMotorSpeed > 0);
+  digitalWrite(leftMotorPin2, leftMotorSpeed < 0);
+  analogWrite(enableRightMotor, abs(rightMotorSpeed));
+  analogWrite(enableLeftMotor, abs(leftMotorSpeed));
+}
+
+void echoISR() {
+  if (digitalRead(ECHO_PIN) == HIGH) {
+    echoStart = micros();
+  } else {
+    echoEnd = micros();
+    echoReceived = true;
+  }
+}
+
+long getDistanceInterrupt() {
+  echoReceived = false;
+  echoStart = 0;
+  echoEnd = 0;
+
+  // Trigger pulse
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  // Wait for echo with timeout
+  unsigned long timeout = micros();
+  while (!echoReceived && (micros() - timeout < 30000)); // 30ms timeout (~5m)
+
+  if (echoReceived && echoEnd > echoStart) {
+    unsigned long duration = echoEnd - echoStart;
+    long distance = duration * 0.034 / 2;
+    if (distance > 400 || distance < 2) {
+      Serial.println("Invalid distance detected");
+      return -1; // Out of range
+    }
+    return distance;
+  }
+
+  Serial.println("No echo received");
+  return -1; // No echo
+}
