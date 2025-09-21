@@ -19,7 +19,7 @@ int leftMotorPin2 = 10;
 
 void setup() {
   Serial.begin(9600);
-  TCCR0B = TCCR0B & B11111000 | B00000010;
+  TCCR0B = TCCR0B & B11111000 | B00000010; // Fast PWM
   pinMode(enableRightMotor, OUTPUT);
   pinMode(rightMotorPin1, OUTPUT);
   pinMode(rightMotorPin2, OUTPUT);
