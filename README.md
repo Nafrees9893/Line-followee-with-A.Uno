@@ -1,2 +1,1 @@
-# Line-followee-with-A.Uno
-Line followee with A...Uno
+Arduino UNO line follower with 2 IR sensors and HC-SR04 obstacle stop. Interrupt-driven echo, PWM speed control, no extra libraries. Pins: IR L=12, IR R=11, TRIG=2, ECHO=3 (INT1), L298N ENA=6 / IN1=7 / IN2=8, ENB=5 / IN3=9 / IN4=10.
